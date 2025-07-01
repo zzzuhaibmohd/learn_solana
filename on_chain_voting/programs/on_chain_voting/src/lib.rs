@@ -7,8 +7,8 @@ pub mod on_chain_voting {
     use super::*;
 
     pub fn init_vote_bank(ctx: Context<VoteBank>) -> Result<()> {
-        msg!("Greetings from: {:?}", ctx.program_id);
         ctx.accounts.vote_account.is_open_to_vote = true;
+        ctx.accounts.vote_account.voters = Vec::with_capacity(50);
         Ok(())
     }
 
@@ -17,7 +17,13 @@ pub mod on_chain_voting {
             ctx.accounts.vote_account.is_open_to_vote,
             VotingError::VotingClosed
         );
-
+        require!(
+            !ctx.accounts
+                .vote_account
+                .voters
+                .contains(&ctx.accounts.user.key()),
+            VotingError::AlreadyVoted
+        );
         match vote_type {
             VoteType::GM => {
                 ctx.accounts.vote_account.gm += 1;
@@ -28,6 +34,10 @@ pub mod on_chain_voting {
                 msg!("Signer Voted GN: {}", ctx.accounts.user.key());
             }
         }
+        ctx.accounts
+            .vote_account
+            .voters
+            .push(ctx.accounts.user.key());
         Ok(())
     }
 
@@ -42,7 +52,7 @@ pub struct VoteBank<'info> {
     #[account(
         init,
         payer = user,
-        space = 8 + 32,
+        space = 8 + 32 + 8 + 8 + 4 + (32 * 50),
     )]
     pub vote_account: Account<'info, VoteBankData>,
     #[account(mut)]
@@ -55,6 +65,7 @@ pub struct VoteBankData {
     pub is_open_to_vote: bool,
     pub gm: u64,
     pub gn: u64,
+    pub voters: Vec<Pubkey>,
 }
 
 #[derive(Accounts)]
@@ -81,4 +92,6 @@ pub enum VoteType {
 pub enum VotingError {
     #[msg("Voting is currently closed")]
     VotingClosed,
+    #[msg("User has already voted")]
+    AlreadyVoted,
 }

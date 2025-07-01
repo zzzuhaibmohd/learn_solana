@@ -98,4 +98,25 @@ describe("on_chain_voting", () => {
       assert.equal(error.error.errorMessage, "Voting is currently closed");
     }
   });
+
+  it("try to give a vote twice", async () => {
+    await program.methods.giveVote({ gm: {} }).accounts({
+      voteAccount: voteBank.publicKey,
+      user: voterOne.publicKey,
+    })
+    .signers([voterOne])
+    .rpc();
+
+    try {
+      await program.methods.giveVote({ gm: {} }).accounts({
+        voteAccount: voteBank.publicKey,
+        user: voterOne.publicKey,
+      })
+      .signers([voterOne])
+      .rpc();
+    } catch (error) {
+      assert.equal(error.error.errorCode.code, "AlreadyVoted");
+      assert.equal(error.error.errorMessage, "User has already voted");
+    }
+  });
 });
